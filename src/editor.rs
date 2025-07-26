@@ -6,18 +6,18 @@ pub fn process_key() -> Result<(), std::io::Error> {
         terminal::refresh_screen(&cursor);
         let c = terminal::read_key()?;
         match c {
-            b'h' => {
+            c if c == ctrl_key(b'h') => {
                 if cursor.col > 1 {
                     cursor.col -= 1
                 }
             }
-            b'j' => cursor.row += 1,
-            b'k' => {
+            c if c == ctrl_key(b'j') => cursor.row += 1,
+            c if c == ctrl_key(b'k') => {
                 if cursor.row > 1 {
                     cursor.row -= 1
                 }
             }
-            b'l' => cursor.col += 1,
+            c if c == ctrl_key(b'l') => cursor.col += 1,
             c if c == ctrl_key(b'q') => {
                 print!("\x1b[2J");
                 print!("\x1b[H");
