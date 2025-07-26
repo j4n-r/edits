@@ -1,6 +1,7 @@
 use crate::editor;
 use crate::EDITOR_CONFIG;
 use editor::Cursor;
+use libc::strlen;
 use std::io::{Read, Write};
 
 pub fn enable_raw_mode() -> Result<libc::termios, std::io::Error> {
@@ -41,7 +42,6 @@ pub fn read_key() -> Result<u8, std::io::Error> {
 
 pub fn refresh_screen(cursor: &Cursor) {
     let mut term_buf: Vec<String> = Vec::with_capacity(1000);
-    term_buf.push("\x1b[2J".to_string()); // clear screen
     term_buf.push("\x1b[H".to_string()); // move to 1:1
     draw_rows(&mut term_buf);
     let cursor_pos = format!("\x1b[{};{}H", cursor.row, cursor.col);
@@ -51,10 +51,16 @@ pub fn refresh_screen(cursor: &Cursor) {
 }
 
 fn draw_rows(term_buf: &mut Vec<String>) {
-    for _i in 0..EDITOR_CONFIG.window.ws_row - 1 {
-        term_buf.push("~\r\n".to_string())
+    for i in 0..EDITOR_CONFIG.window.ws_row - 1 {
+        if i == EDITOR_CONFIG.window.ws_row / 4 {
+            display_welcome_message(term_buf);
+        } else {
+            term_buf.push("~".to_string());
+        }
+
+        term_buf.push("\x1b[K".to_string()); //
+        term_buf.push("\r\n".to_string());
     }
-    term_buf.push("~".to_string());
 }
 
 pub fn get_window_size() -> Result<libc::winsize, std::io::Error> {
@@ -65,4 +71,10 @@ pub fn get_window_size() -> Result<libc::winsize, std::io::Error> {
         }
         Ok(ws)
     }
+}
+
+fn display_welcome_message(term_buf: &mut Vec<String>) {
+    let wlc_msg = "Hey this is edits";
+    let padding = EDITOR_CONFIG.window.ws_col / 2 - wlc_msg.len() as u16 / 2;
+    term_buf.push(format!("{}Hey this is edits", " ".repeat(padding as usize)));
 }
