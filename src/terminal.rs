@@ -1,19 +1,7 @@
+use crate::editor;
 use crate::EDITOR_CONFIG;
-use std::io::Read;
-
-pub fn read_key() -> Result<u8, std::io::Error> {
-    let mut buffer: [u8; 1] = [0; 1];
-    std::io::stdin()
-        .read_exact(&mut buffer)
-        .expect("read failed");
-    Ok(buffer[0])
-}
-
-pub fn refresh_screen() {
-    draw_rows();
-    print!("\x1b[2J");
-    print!("\x1b[H");
-}
+use editor::Cursor;
+use std::io::{Read, Write};
 
 pub fn enable_raw_mode() -> Result<libc::termios, std::io::Error> {
     unsafe {
@@ -35,13 +23,6 @@ pub fn enable_raw_mode() -> Result<libc::termios, std::io::Error> {
     }
 }
 
-fn draw_rows() {
-    for _i in 0..EDITOR_CONFIG.window.ws_row - 1 {
-        print!("~\r\n")
-    }
-    print!("~");
-}
-
 pub fn disable_raw_mode(termios: libc::termios) -> Result<(), std::io::Error> {
     unsafe {
         if libc::tcsetattr(libc::STDIN_FILENO, libc::TCSAFLUSH, &termios) != 0 {
@@ -49,6 +30,31 @@ pub fn disable_raw_mode(termios: libc::termios) -> Result<(), std::io::Error> {
         }
         Ok(())
     }
+}
+pub fn read_key() -> Result<u8, std::io::Error> {
+    let mut buffer: [u8; 1] = [0; 1];
+    std::io::stdin()
+        .read_exact(&mut buffer)
+        .expect("read failed");
+    Ok(buffer[0])
+}
+
+pub fn refresh_screen(cursor: &Cursor) {
+    let mut term_buf: Vec<String> = Vec::with_capacity(1000);
+    term_buf.push("\x1b[2J".to_string()); // clear screen
+    term_buf.push("\x1b[H".to_string()); // move to 1:1
+    draw_rows(&mut term_buf);
+    let cursor_pos = format!("\x1b[{};{}H", cursor.row, cursor.col);
+    term_buf.push(cursor_pos); // move to row:col
+    print!("{}", term_buf.join(""));
+    std::io::stdout().flush().unwrap();
+}
+
+fn draw_rows(term_buf: &mut Vec<String>) {
+    for _i in 0..EDITOR_CONFIG.window.ws_row - 1 {
+        term_buf.push("~\r\n".to_string())
+    }
+    term_buf.push("~".to_string());
 }
 
 pub fn get_window_size() -> Result<libc::winsize, std::io::Error> {

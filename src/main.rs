@@ -1,8 +1,8 @@
-use std::sync::LazyLock;
+use std::sync::{LazyLock, Mutex};
 mod editor;
 mod terminal;
 
-pub static EDITOR_CONFIG: std::sync::LazyLock<EditorConfig> = LazyLock::new(|| EditorConfig {
+pub static EDITOR_CONFIG: LazyLock<EditorConfig> = LazyLock::new(|| EditorConfig {
     orig_termios: terminal::enable_raw_mode().expect("Enabling raw mode failed"),
     window: terminal::get_window_size().expect("Error getting window size"),
 });
@@ -13,7 +13,7 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-struct EditorConfig {
+pub struct EditorConfig {
     orig_termios: libc::termios,
     window: libc::winsize,
 }
