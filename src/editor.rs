@@ -39,7 +39,11 @@ pub fn process_key(buf: &mut Buffer) -> Result<(), std::io::Error> {
                     vis_cursor.col -= 1
                 }
             }
-            c if c == ctrl_key(b'j') => vis_cursor.row += 1,
+            c if c == ctrl_key(b'j') => {
+                if vis_cursor.row < buf.lines.len() {
+                    vis_cursor.row += 1;
+                }
+            }
             c if c == ctrl_key(b'k') => {
                 if vis_cursor.row > 1 {
                     vis_cursor.row -= 1
@@ -59,18 +63,34 @@ pub fn process_key(buf: &mut Buffer) -> Result<(), std::io::Error> {
 
 fn delete(num_to_delete: usize, vis_cursor: &Cursor, buf: &mut Buffer) {
     let mem_cursor = vis_to_mem_cursor(vis_cursor, buf);
+    log::debug(format!("(vis: {:?}", vis_cursor));
+    log::debug(format!("(mem: {:?}", mem_cursor));
     let row = buf
         .lines
-        .get(mem_cursor.row - 1)
+        .get(mem_cursor.row)
         .expect("row not found in delete()");
-    let start = &row[0..mem_cursor.col - 2 - num_to_delete];
-    let end = &row[mem_cursor.col - 2..];
+    if mem_cursor.col < num_to_delete {
+        log::debug(format!(
+            "Not enough characters to delete: col={}, size={}",
+            mem_cursor.col, num_to_delete,
+        ));
+        return;
+    }
+
+    if mem_cursor.col > row.len() {
+        log::debug(format!(
+            "Column out of bounds: col={}, line_len={}",
+            mem_cursor.col,
+            row.len(),
+        ));
+        return;
+    }
+
+    let start = &row[0..mem_cursor.col - num_to_delete];
+    let end = &row[mem_cursor.col..];
     let mut new_line = String::from(start);
     new_line.push_str(end);
-    let curr_line = buf
-        .lines
-        .get_mut(mem_cursor.row - 1)
-        .expect("row not found");
+    let curr_line = buf.lines.get_mut(mem_cursor.row).expect("row not found");
     *curr_line = new_line;
 }
 
@@ -104,7 +124,7 @@ fn vis_to_mem_cursor(vis_cursor: &Cursor, buf: &Buffer) -> Cursor {
         .count();
     let mem_col = vis_cursor.col + (tabs_before_cursor * (EDITOR_CONFIG.tab_stop_size - 1));
     Cursor {
-        row: vis_cursor.row,
-        col: mem_col,
+        row: vis_cursor.row - 1, // 1 to 0 based indexing
+        col: mem_col - 2,        // remove the ~
     }
 }
