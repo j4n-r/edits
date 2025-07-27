@@ -1,7 +1,6 @@
 use crate::editor;
 use crate::EDITOR_CONFIG;
-use editor::Cursor;
-use libc::strlen;
+use editor::VisCursor;
 use std::io::{Read, Write};
 
 pub fn enable_raw_mode() -> Result<libc::termios, std::io::Error> {
@@ -40,25 +39,31 @@ pub fn read_key() -> Result<u8, std::io::Error> {
     Ok(buffer[0])
 }
 
-pub fn refresh_screen(cursor: &Cursor) {
+pub fn refresh_screen(cursor: &VisCursor, buf: &mut editor::Buffer) {
     let mut term_buf: Vec<String> = Vec::with_capacity(1000);
     term_buf.push("\x1b[H".to_string()); // move to 1:1
-    draw_rows(&mut term_buf);
+    draw_rows(&mut term_buf, buf);
     let cursor_pos = format!("\x1b[{};{}H", cursor.row, cursor.col);
     term_buf.push(cursor_pos); // move to row:col
     print!("{}", term_buf.join(""));
     std::io::stdout().flush().unwrap();
 }
 
-fn draw_rows(term_buf: &mut Vec<String>) {
+fn draw_rows(term_buf: &mut Vec<String>, buf: &editor::Buffer) {
     for i in 0..EDITOR_CONFIG.window.ws_row - 1 {
-        if i == EDITOR_CONFIG.window.ws_row / 4 {
-            display_welcome_message(term_buf);
+        if EDITOR_CONFIG.welcome_message && buf.lines.is_empty() {
+            if i == EDITOR_CONFIG.window.ws_row / 4 {
+                display_welcome_message(term_buf);
+            } else {
+                term_buf.push("~".to_string());
+            }
         } else {
-            term_buf.push("~".to_string());
+            match buf.lines.get(i as usize) {
+                Some(line) => term_buf.push(line.to_string()),
+                None => term_buf.push("~".to_string()),
+            }
         }
-
-        term_buf.push("\x1b[K".to_string()); //
+        term_buf.push("\x1b[K".to_string());
         term_buf.push("\r\n".to_string());
     }
 }
