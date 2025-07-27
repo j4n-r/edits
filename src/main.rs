@@ -1,4 +1,5 @@
 mod editor;
+mod log;
 mod terminal;
 use std::sync::LazyLock;
 
@@ -9,6 +10,7 @@ pub static EDITOR_CONFIG: LazyLock<EditorConfig> = LazyLock::new(|| EditorConfig
     window: terminal::get_window_size().expect("Error getting window size"),
     tab_stop_size: 4,
     welcome_message: true,
+    debug: true,
 });
 
 fn main() -> Result<(), anyhow::Error> {
@@ -29,6 +31,7 @@ pub struct EditorConfig {
     window: libc::winsize,
     tab_stop_size: usize,
     welcome_message: bool,
+    debug: bool,
 }
 
 impl Drop for EditorConfig {

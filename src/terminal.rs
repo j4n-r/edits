@@ -1,6 +1,6 @@
 use crate::editor;
 use crate::EDITOR_CONFIG;
-use editor::VisCursor;
+use editor::{Cursor, Debug};
 use std::io::{Read, Write};
 
 pub fn enable_raw_mode() -> Result<libc::termios, std::io::Error> {
@@ -39,18 +39,23 @@ pub fn read_key() -> Result<u8, std::io::Error> {
     Ok(buffer[0])
 }
 
-pub fn refresh_screen(cursor: &VisCursor, buf: &mut editor::Buffer) {
+pub fn refresh_screen(cursor: &Cursor, buf: &mut editor::Buffer, debug_info: &Debug) {
     let mut term_buf: Vec<String> = Vec::with_capacity(1000);
     term_buf.push("\x1b[H".to_string()); // move to 1:1
-    draw_rows(&mut term_buf, buf);
+    draw_rows(&mut term_buf, buf, &debug_info);
     let cursor_pos = format!("\x1b[{};{}H", cursor.row, cursor.col); // move to row:col
     term_buf.push(cursor_pos);
     print!("{}", term_buf.join(""));
     std::io::stdout().flush().unwrap();
 }
 
-fn draw_rows(term_buf: &mut Vec<String>, buf: &editor::Buffer) {
-    for i in 0..EDITOR_CONFIG.window.ws_row - 1 {
+fn draw_rows(term_buf: &mut Vec<String>, buf: &editor::Buffer, debug: &Debug) {
+    let term_rows = if EDITOR_CONFIG.debug {
+        EDITOR_CONFIG.window.ws_row - 2
+    } else {
+        EDITOR_CONFIG.window.ws_row - 1
+    };
+    for i in 0..term_rows {
         if EDITOR_CONFIG.welcome_message && buf.lines.is_empty() {
             if i == EDITOR_CONFIG.window.ws_row / 4 {
                 display_welcome_message(term_buf);
@@ -59,12 +64,16 @@ fn draw_rows(term_buf: &mut Vec<String>, buf: &editor::Buffer) {
             }
         } else {
             match buf.lines.get(i as usize) {
-                Some(line) => term_buf.push(format!(" {}", line.to_string())),
+                Some(line) => term_buf.push(format!(" {}", line)),
                 None => term_buf.push("~".to_string()),
             }
         }
         term_buf.push("\x1b[K".to_string());
         term_buf.push("\r\n".to_string());
+    }
+    if EDITOR_CONFIG.debug {
+        let status_line = format!("Debug: keycode={}", debug.keycode as u8 as char);
+        term_buf.push(status_line);
     }
 }
 

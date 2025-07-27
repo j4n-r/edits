@@ -1,39 +1,51 @@
+use crate::log;
 use std::io::{BufRead, Read};
 
 use crate::{terminal, EDITOR_CONFIG};
 
-pub struct VisCursor {
+#[derive(Debug)]
+pub struct Cursor {
     pub row: usize,
     pub col: usize,
 }
 
-pub struct MemCursor {
-    pub row: usize,
-    pub col: usize,
-}
-
+#[derive(Debug)]
 pub struct Buffer {
     pub lines: Vec<String>,
 }
 
+#[derive(Debug)]
+pub struct Debug {
+    pub keycode: usize,
+}
+
 pub fn process_key(buf: &mut Buffer) -> Result<(), std::io::Error> {
-    let mut cursor = VisCursor { row: 1, col: 2 };
+    let mut vis_cursor = Cursor { row: 1, col: 2 };
+    let mut debug_info = Debug { keycode: 0 };
     loop {
-        terminal::refresh_screen(&cursor, buf);
+        terminal::refresh_screen(&vis_cursor, buf, &debug_info);
         let c = terminal::read_key()?;
+        log::debug(c.to_string());
+        debug_info.keycode = c as usize;
         match c {
+            127 => {
+                delete(1, &vis_cursor, buf);
+                if vis_cursor.col > 2 {
+                    vis_cursor.col -= 1
+                }
+            }
             c if c == ctrl_key(b'h') => {
-                if cursor.col > 2 {
-                    cursor.col -= 1
+                if vis_cursor.col > 2 {
+                    vis_cursor.col -= 1
                 }
             }
-            c if c == ctrl_key(b'j') => cursor.row += 1,
+            c if c == ctrl_key(b'j') => vis_cursor.row += 1,
             c if c == ctrl_key(b'k') => {
-                if cursor.row > 1 {
-                    cursor.row -= 1
+                if vis_cursor.row > 1 {
+                    vis_cursor.row -= 1
                 }
             }
-            c if c == ctrl_key(b'l') => cursor.col += 1,
+            c if c == ctrl_key(b'l') => vis_cursor.col += 1,
             c if c == ctrl_key(b'q') => {
                 print!("\x1b[2J");
                 print!("\x1b[H");
@@ -43,6 +55,23 @@ pub fn process_key(buf: &mut Buffer) -> Result<(), std::io::Error> {
             _ => (),
         }
     }
+}
+
+fn delete(num_to_delete: usize, vis_cursor: &Cursor, buf: &mut Buffer) {
+    let mem_cursor = vis_to_mem_cursor(vis_cursor, buf);
+    let row = buf
+        .lines
+        .get(mem_cursor.row - 1)
+        .expect("row not found in delete()");
+    let start = &row[0..mem_cursor.col - 2 - num_to_delete];
+    let end = &row[mem_cursor.col - 2..];
+    let mut new_line = String::from(start);
+    new_line.push_str(end);
+    let curr_line = buf
+        .lines
+        .get_mut(mem_cursor.row - 1)
+        .expect("row not found");
+    *curr_line = new_line;
 }
 
 pub fn load_file(file_path: String) -> Result<Buffer, anyhow::Error> {
@@ -66,12 +95,16 @@ const fn ctrl_key(k: u8) -> u8 {
     k & 0x1f
 }
 
-fn vis_to_mem_cursor(mut vis_cursor: VisCursor, buf: &Buffer) {
+fn vis_to_mem_cursor(vis_cursor: &Cursor, buf: &Buffer) -> Cursor {
     let line = &buf.lines[vis_cursor.row - 1];
     let tabs_before_cursor = line
         .chars()
         .take(vis_cursor.col as usize)
         .filter(|&c| c == '\t')
         .count();
-    vis_cursor.col += tabs_before_cursor * (EDITOR_CONFIG.tab_stop_size - 1);
+    let mem_col = vis_cursor.col + (tabs_before_cursor * (EDITOR_CONFIG.tab_stop_size - 1));
+    Cursor {
+        row: vis_cursor.row,
+        col: mem_col,
+    }
 }
