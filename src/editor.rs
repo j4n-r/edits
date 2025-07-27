@@ -1,5 +1,8 @@
 use crate::log;
-use std::io::{BufRead, Read};
+use std::{
+    io::{BufRead, Read},
+    str,
+};
 
 use crate::{terminal, EDITOR_CONFIG};
 
@@ -34,6 +37,12 @@ pub fn process_key(buf: &mut Buffer) -> Result<(), std::io::Error> {
                     vis_cursor.col -= 1
                 }
             }
+            13 => {
+                vis_cursor.row += 1;
+                if vis_cursor.row >= buf.lines.len() {
+                    buf.lines.push("".to_string());
+                }
+            }
             c if c == ctrl_key(b'h') => {
                 if vis_cursor.col > 2 {
                     vis_cursor.col -= 1
@@ -56,9 +65,35 @@ pub fn process_key(buf: &mut Buffer) -> Result<(), std::io::Error> {
                 print!("Exited by user");
                 return Ok(());
             }
-            _ => (),
+            _ => {
+                insert(c, &vis_cursor, buf);
+                vis_cursor.col += 1;
+            }
         }
     }
+}
+
+fn insert(c: u8, vis_cursor: &Cursor, buf: &mut Buffer) {
+    let mem_cursor = vis_to_mem_cursor(vis_cursor, buf);
+    log::debug(format!("(vis: {:?}", vis_cursor));
+    log::debug(format!("(mem: {:?}", mem_cursor));
+    let row = buf
+        .lines
+        .get(mem_cursor.row)
+        .expect("row not found in delete()");
+
+    let start = &row[0..mem_cursor.col];
+    let end = &row[mem_cursor.col..];
+    let mut new_line = String::from(start);
+    if let Ok(new_char) = std::str::from_utf8(&[c]) {
+        new_line.push_str(new_char);
+    } else {
+        log::debug("unrecognized char".to_string());
+        return;
+    };
+    new_line.push_str(end);
+    let curr_line = buf.lines.get_mut(mem_cursor.row).expect("row not found");
+    *curr_line = new_line;
 }
 
 fn delete(num_to_delete: usize, vis_cursor: &Cursor, buf: &mut Buffer) {
