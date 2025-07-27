@@ -17,13 +17,13 @@ pub struct Buffer {
 }
 
 pub fn process_key(buf: &mut Buffer) -> Result<(), std::io::Error> {
-    let mut cursor = VisCursor { row: 1, col: 1 };
+    let mut cursor = VisCursor { row: 1, col: 2 };
     loop {
         terminal::refresh_screen(&cursor, buf);
         let c = terminal::read_key()?;
         match c {
             c if c == ctrl_key(b'h') => {
-                if cursor.col > 1 {
+                if cursor.col > 2 {
                     cursor.col -= 1
                 }
             }

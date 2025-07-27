@@ -43,8 +43,8 @@ pub fn refresh_screen(cursor: &VisCursor, buf: &mut editor::Buffer) {
     let mut term_buf: Vec<String> = Vec::with_capacity(1000);
     term_buf.push("\x1b[H".to_string()); // move to 1:1
     draw_rows(&mut term_buf, buf);
-    let cursor_pos = format!("\x1b[{};{}H", cursor.row, cursor.col);
-    term_buf.push(cursor_pos); // move to row:col
+    let cursor_pos = format!("\x1b[{};{}H", cursor.row, cursor.col); // move to row:col
+    term_buf.push(cursor_pos);
     print!("{}", term_buf.join(""));
     std::io::stdout().flush().unwrap();
 }
@@ -59,7 +59,7 @@ fn draw_rows(term_buf: &mut Vec<String>, buf: &editor::Buffer) {
             }
         } else {
             match buf.lines.get(i as usize) {
-                Some(line) => term_buf.push(line.to_string()),
+                Some(line) => term_buf.push(format!(" {}", line.to_string())),
                 None => term_buf.push("~".to_string()),
             }
         }
